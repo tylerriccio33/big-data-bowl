@@ -1,0 +1,37 @@
+[project]
+name = "bowl"
+version = "0.1.0"
+description = "NFL Big Data Bowl 2027: combine tracking -> NFL success"
+readme = "README.md"
+authors = [
+    { name = "Tyler Riccio", email = "tylerriccio8@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "duckdb>=2.0.0",
+    "matplotlib>=3.11.2",
+    "polars>=2.0.0",
+    "pyarrow>=26.0.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.2,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.4.0",
+    "kaggle>=2.2.5",
+    "pyrefly>=1.4.0",
+    "ruff>=0.17.2",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "PL"]
+ignore = ["PLR2004"]
+
+[tool.pyrefly]
+project-includes = ["src"]
