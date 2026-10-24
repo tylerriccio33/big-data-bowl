@@ -1,4 +1,4 @@
-.PHONY: install download parquet lint fmt typecheck check
+.PHONY: install download parquet res lint fmt typecheck check
 
 COMP := nfl-big-data-bowl-2027
 
@@ -11,6 +11,9 @@ download:
 
 parquet:
 	uv run python -m bowl.convert
+
+res:
+	uv run python -m bowl.res
 
 lint:
 	uv run ruff check .
