@@ -5,9 +5,10 @@ Two components, each a percentile among drafted WRs:
 1. epa_adj      - EPA on the receiver's targets per route run (untargeted routes count as 0),
                   taken at its lower confidence bound: mean - EPA_Z * sd / sqrt(routes).
                   A small sample is uncertain, and that uncertainty counts against the receiver.
-2. target_share - receiver targets / team targets in the games they ran a route
+2. share_adj    - receiver targets / team targets in the games they ran a route, also at its
+                  lower confidence bound: p - SHARE_Z * sqrt(p * (1 - p) / team_targets).
 
-res = 0.5 * epa_adj + 0.5 * target_share, on a 0-100 scale.
+res = 0.5 * epa_adj + 0.5 * share_adj, on a 0-100 scale.
 """
 
 from pathlib import Path
@@ -17,6 +18,7 @@ import polars as pl
 P = Path("data/parquet")
 MIN_ROUTES_BOTTOM = 150
 EPA_Z = 1.0
+SHARE_Z = 1.0
 
 
 def pct(col: str) -> pl.Expr:
@@ -74,6 +76,13 @@ def receiving(plays: pl.LazyFrame) -> pl.DataFrame:
             target_share=pl.col("targets") / pl.col("team_targets"),
             epa_adj=pl.col("epa_per_play") - EPA_Z * pl.col("epa_sd") / pl.col("routes").sqrt(),
         )
+        .with_columns(
+            share_adj=pl.col("target_share")
+            - SHARE_Z
+            * (
+                pl.col("target_share") * (1 - pl.col("target_share")) / pl.col("team_targets")
+            ).sqrt(),
+        )
         .collect()
     )
 
@@ -85,9 +94,9 @@ def build() -> pl.DataFrame:
     )
     # Players with no regular-season routes have no res rather than a defaulted one.
     return (
-        df.with_columns(pct("epa_adj"), pct("target_share"))
+        df.with_columns(pct("epa_adj"), pct("share_adj"))
         .with_columns(
-            res=0.5 * pl.col("epa_adj_pct") + 0.5 * pl.col("target_share_pct"),
+            res=0.5 * pl.col("epa_adj_pct") + 0.5 * pl.col("share_adj_pct"),
         )
         .sort("res", descending=True, nulls_last=True)
     )
@@ -97,7 +106,15 @@ def main() -> None:
     df = build()
     df.write_parquet(P / "wr_res.parquet")
     cols = ["display_name", "draft_year", "draft_overall_pick", "routes", "yards"]
-    cols += ["epa_per_play", "epa_adj", "target_share", "epa_adj_pct", "target_share_pct", "res"]
+    cols += [
+        "epa_per_play",
+        "epa_adj",
+        "target_share",
+        "share_adj",
+        "epa_adj_pct",
+        "share_adj_pct",
+        "res",
+    ]
     with pl.Config(tbl_rows=20, tbl_cols=-1, float_precision=3, tbl_width_chars=200):
         print("TOP 10\n", df.head(10).select(cols))
         bottom = df.filter(pl.col("routes") >= MIN_ROUTES_BOTTOM).tail(10)
